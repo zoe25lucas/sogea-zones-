@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -51,7 +50,11 @@ button {
   cursor:pointer;
 }
 label { display:block; margin-top:8px; }
-#result { margin-top:12px; font-weight:600; white-space:pre-line; }
+#result {
+  margin-top:12px;
+  font-weight:600;
+  white-space:pre-line;
+}
 #map {
   height:55vh;
   border-radius:16px;
@@ -155,8 +158,7 @@ function search(){
   if(document.getElementById("geo").checked){
     navigator.geolocation.getCurrentPosition(
       pos=>{
-        reverseCity(pos.coords.latitude,pos.coords.longitude);
-        handlePoint(pos.coords.latitude,pos.coords.longitude);
+        handleGeo(pos.coords.latitude,pos.coords.longitude);
       },
       ()=>document.getElementById("result").innerText="📍 Position indisponible",
       {enableHighAccuracy:true,timeout:10000}
@@ -178,11 +180,28 @@ function search(){
     });
 }
 
-function handlePoint(lat,lon){
+function handleGeo(lat,lon){
+  // 1️⃣ récupérer la commune
+  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+    .then(r=>r.json())
+    .then(d=>{
+      let city="";
+      if(d.address){
+        city=d.address.city||d.address.town||d.address.village||"";
+      }
+      document.getElementById("result").innerText=
+        city ? `📍 Vous êtes à ${city}\n\n` : "📍 Position détectée\n\n";
+
+      // 2️⃣ calculer les zones
+      handlePoint(lat,lon,true);
+    });
+}
+
+function handlePoint(lat,lon,append=false){
   targetMarker=L.marker([lat,lon]).addTo(map);
   map.setView([lat,lon],9);
 
-  let text="📍 Résultat :\n";
+  let text="";
 
   agencies.forEach(a=>{
     if(!document.getElementById(a.id).checked) return;
@@ -202,21 +221,13 @@ function handlePoint(lat,lon){
     }
   });
 
-  document.getElementById("result").innerText=text;
+  if(!append){
+    document.getElementById("result").innerText=text;
+  } else {
+    document.getElementById("result").innerText+=text;
+  }
 }
 
-function reverseCity(lat,lon){
-  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
-    .then(r=>r.json())
-    .then(d=>{
-      if(d.address){
-        const city=d.address.city||d.address.town||d.address.village||"";
-        document.getElementById("result").innerText=`📍 Vous êtes à ${city}\n`;
-      }
-    });
-}
-
-/* ROUTE */
 function routeTime(from,to,name){
   fetch(`https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=false`)
     .then(r=>r.json())
@@ -227,7 +238,7 @@ function routeTime(from,to,name){
     });
 }
 
-/* GEO UTILS */
+/* outils géographiques */
 function bearing(a,b){
   const toRad=d=>d*Math.PI/180;
   const y=Math.sin(toRad(b[1]-a[1]))*Math.cos(toRad(b[0]));
