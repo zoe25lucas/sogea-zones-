@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -47,7 +48,6 @@ button {
   background:var(--primary);
   color:white;
   border:none;
-  cursor:pointer;
 }
 label { display:block; margin-top:8px; }
 #result {
@@ -58,7 +58,6 @@ label { display:block; margin-top:8px; }
 #map {
   height:55vh;
   border-radius:16px;
-  overflow:hidden;
 }
 footer {
   text-align:center;
@@ -72,7 +71,7 @@ footer {
 <body>
 
 <header>
-  <img src="sogea-logo.png" alt="SOGEA">
+  <img src="sogea-logo.png">
   <h1>Zones d’intervention – SOGEA</h1>
 </header>
 
@@ -83,12 +82,11 @@ footer {
   <label><input type="checkbox" id="kraut" checked> Krautergersheim</label>
   <label><input type="checkbox" id="rich" checked> Richwiller</label>
 
-  <label style="margin-top:10px;">
+  <label>
     <input type="checkbox" id="geo"> Utiliser ma géolocalisation
   </label>
 
-  <input type="text" id="input" placeholder="Ville, village ou adresse complète">
-
+  <input id="input" placeholder="Ville, village ou adresse complète">
   <button onclick="search()">Vérifier la zone</button>
 
   <div id="result"></div>
@@ -98,101 +96,51 @@ footer {
 
 </main>
 
-<footer>© SOGEA – Outil interne de zonage</footer>
+<footer>© SOGEA</footer>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-const agencies = [
-  {
-    id:"kraut",
-    name:"Krautergersheim",
-    coord:[48.472359843250466,7.593746957672707],
-    color:"#003a8f"
-  },
-  {
-    id:"rich",
-    name:"Richwiller",
-    coord:[47.7786,7.3125],
-    color:"#e67e22"
-  }
+const agencies=[
+  {id:"kraut",name:"Krautergersheim",coord:[48.47236,7.59375],color:"#003a8f"},
+  {id:"rich",name:"Richwiller",coord:[47.7786,7.3125],color:"#e67e22"}
 ];
-
 const zoneRadii=[10,20,30,40,50,60];
 const map=L.map('map').setView([48.3,7.6],8);
-let markers=[], zones=[], targetMarker;
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  attribution:'© OpenStreetMap'
-}).addTo(map);
-
-drawAgencies();
-
-function drawAgencies(){
-  markers.forEach(m=>map.removeLayer(m));
-  zones.forEach(z=>map.removeLayer(z));
-  markers=[]; zones=[];
-
-  agencies.forEach(a=>{
-    if(document.getElementById(a.id).checked){
-      markers.push(
-        L.marker(a.coord).addTo(map).bindPopup("Agence SOGEA – "+a.name)
-      );
-      zoneRadii.forEach(r=>{
-        zones.push(
-          L.circle(a.coord,{
-            radius:r*1000,
-            color:a.color,
-            fillOpacity:0.08
-          }).addTo(map)
-        );
-      });
-    }
-  });
-}
+let targetMarker;
 
 function search(){
   document.getElementById("result").innerText="";
-  drawAgencies();
   if(targetMarker) map.removeLayer(targetMarker);
 
   if(document.getElementById("geo").checked){
     navigator.geolocation.getCurrentPosition(
-      pos=>{
-        handleGeo(pos.coords.latitude,pos.coords.longitude);
-      },
+      p=>handleGeo(p.coords.latitude,p.coords.longitude),
       ()=>document.getElementById("result").innerText="📍 Position indisponible",
-      {enableHighAccuracy:true,timeout:10000}
+      {enableHighAccuracy:true}
     );
     return;
   }
 
-  const q=document.getElementById("input").value.trim();
+  const q=input.value.trim();
   if(!q) return;
 
   fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=fr,de&limit=1`)
     .then(r=>r.json())
     .then(d=>{
-      if(!d.length){
-        document.getElementById("result").innerText="❌ Lieu non trouvé";
-        return;
-      }
+      if(!d.length) return;
       handlePoint(+d[0].lat,+d[0].lon);
     });
 }
 
 function handleGeo(lat,lon){
-  // 1️⃣ récupérer la commune
   fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
     .then(r=>r.json())
     .then(d=>{
-      let city="";
-      if(d.address){
-        city=d.address.city||d.address.town||d.address.village||"";
-      }
+      const city=d.address?.city||d.address?.town||d.address?.village||"";
       document.getElementById("result").innerText=
         city ? `📍 Vous êtes à ${city}\n\n` : "📍 Position détectée\n\n";
-
-      // 2️⃣ calculer les zones
       handlePoint(lat,lon,true);
     });
 }
@@ -200,8 +148,6 @@ function handleGeo(lat,lon){
 function handlePoint(lat,lon,append=false){
   targetMarker=L.marker([lat,lon]).addTo(map);
   map.setView([lat,lon],9);
-
-  let text="";
 
   agencies.forEach(a=>{
     if(!document.getElementById(a.id).checked) return;
@@ -214,18 +160,13 @@ function handlePoint(lat,lon,append=false){
     });
 
     if(zone){
-      text+=`✔ ${a.name} → Zone ${zone} (${zone*10} km)\n`;
+      document.getElementById("result").innerText+=
+        `✔ ${a.name} → Zone ${zone} (${zone*10} km)\n`;
     } else {
       const from=destinationPoint(a.coord,60,bearing(a.coord,[lat,lon]));
       routeTime(from,[lat,lon],a.name);
     }
   });
-
-  if(!append){
-    document.getElementById("result").innerText=text;
-  } else {
-    document.getElementById("result").innerText+=text;
-  }
 }
 
 function routeTime(from,to,name){
@@ -238,7 +179,7 @@ function routeTime(from,to,name){
     });
 }
 
-/* outils géographiques */
+/* maths */
 function bearing(a,b){
   const toRad=d=>d*Math.PI/180;
   const y=Math.sin(toRad(b[1]-a[1]))*Math.cos(toRad(b[0]));
