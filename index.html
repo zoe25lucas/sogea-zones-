@@ -10,100 +10,58 @@
 
 <style>
 :root {
-  --primary: #003a8f;
-  --secondary: #f4f6f8;
-  --accent: #2ecc71;
+  --primary:#003a8f;
+  --bg:#f4f6f8;
 }
-
 body {
-  margin: 0;
-  font-family: "Segoe UI", Roboto, Arial, sans-serif;
-  background: var(--secondary);
+  margin:0;
+  font-family:Segoe UI, Roboto, Arial, sans-serif;
+  background:var(--bg);
 }
-
-/* HEADER */
 header {
-  background: white;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  padding: 12px 16px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  background:white;
+  padding:12px 16px;
+  display:flex;
+  align-items:center;
+  gap:15px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.08);
 }
-
-header img {
-  height: 40px;
-}
-
-header h1 {
-  font-size: 18px;
-  margin: 0;
-  color: var(--primary);
-}
-
-/* MAIN */
-main {
-  padding: 15px;
-}
-
+header img { height:40px; }
+header h1 { font-size:18px; margin:0; color:var(--primary); }
+main { padding:15px; }
 .card {
-  background: white;
-  border-radius: 14px;
-  padding: 15px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
-  margin-bottom: 15px;
+  background:white;
+  border-radius:14px;
+  padding:15px;
+  box-shadow:0 6px 20px rgba(0,0,0,0.08);
+  margin-bottom:15px;
 }
-
-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
+input, button {
+  width:100%;
+  padding:12px;
+  margin-top:10px;
+  border-radius:10px;
+  border:1px solid #ccc;
+  font-size:15px;
 }
-
-input[type="text"] {
-  width: 100%;
-  padding: 12px;
-  margin-top: 10px;
-  border-radius: 10px;
-  border: 1px solid #ccc;
-  font-size: 16px;
-}
-
 button {
-  width: 100%;
-  margin-top: 12px;
-  padding: 14px;
-  border-radius: 12px;
-  border: none;
-  background: var(--primary);
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
+  background:var(--primary);
+  color:white;
+  border:none;
+  cursor:pointer;
 }
-
-button:hover {
-  opacity: 0.9;
-}
-
-#result {
-  margin-top: 12px;
-  font-size: 16px;
-  font-weight: 600;
-}
-
+label { display:block; margin-top:8px; }
+#result { margin-top:12px; font-weight:600; white-space:pre-line; }
 #map {
-  height: 55vh;
-  border-radius: 16px;
-  overflow: hidden;
+  height:55vh;
+  border-radius:16px;
+  overflow:hidden;
 }
-
-/* FOOTER */
 footer {
-  text-align: center;
-  padding: 10px;
-  font-size: 12px;
-  color: #777;
+  text-align:center;
+  font-size:12px;
+  color:#777;
+  padding:10px;
 }
 </style>
 </head>
@@ -112,135 +70,177 @@ footer {
 
 <header>
   <img src="sogea-logo.png" alt="SOGEA">
-  <h1>Zones d’intervention – Krautergersheim</h1>
+  <h1>Zones d’intervention – SOGEA</h1>
 </header>
 
 <main>
 
-  <div class="card">
-    <label>
-      <input type="checkbox" id="geo">
-      Utiliser ma géolocalisation
-    </label>
+<div class="card">
+  <strong>Agences :</strong>
+  <label><input type="checkbox" id="kraut" checked> Krautergersheim</label>
+  <label><input type="checkbox" id="rich" checked> Richwiller</label>
 
-    <input type="text" id="input" placeholder="Ville, village ou adresse complète">
+  <label style="margin-top:10px;">
+    <input type="checkbox" id="geo"> Utiliser ma géolocalisation
+  </label>
 
-    <button onclick="search()">Vérifier la zone</button>
+  <input type="text" id="input" placeholder="Ville, village ou adresse complète">
 
-    <div id="result"></div>
-  </div>
+  <button onclick="search()">Vérifier la zone</button>
 
-  <div id="map"></div>
+  <div id="result"></div>
+</div>
+
+<div id="map"></div>
 
 </main>
 
-<footer>
-  © SOGEA – Outil interne de zonage
-</footer>
+<footer>© SOGEA – Outil interne de zonage</footer>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-const center = [48.472359843250466, 7.593746957672707];
-const zoneRadii = [10,20,30,40,50,60];
-const colors = ['#2ecc71','#27ae60','#f1c40f','#e67e22','#e74c3c','#8e44ad'];
+const agencies = [
+  {
+    id:"kraut",
+    name:"Krautergersheim",
+    coord:[48.472359843250466,7.593746957672707],
+    color:"#003a8f"
+  },
+  {
+    id:"rich",
+    name:"Richwiller",
+    coord:[47.7786,7.3125],
+    color:"#e67e22"
+  }
+];
 
-const map = L.map('map').setView(center, 8);
+const zoneRadii=[10,20,30,40,50,60];
+const map=L.map('map').setView([48.3,7.6],8);
+let markers=[], zones=[], targetMarker;
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '© OpenStreetMap'
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'© OpenStreetMap'
 }).addTo(map);
 
-L.marker(center).addTo(map).bindPopup("Agence SOGEA – Krautergersheim");
+drawAgencies();
 
-zoneRadii.forEach((r,i)=>{
-  L.circle(center,{
-    radius: r*1000,
-    color: colors[i],
-    fillOpacity: 0.15
-  }).addTo(map).bindPopup(`Zone ${i+1} – ${r} km`);
-});
+function drawAgencies(){
+  markers.forEach(m=>map.removeLayer(m));
+  zones.forEach(z=>map.removeLayer(z));
+  markers=[]; zones=[];
 
-let marker;
+  agencies.forEach(a=>{
+    if(document.getElementById(a.id).checked){
+      markers.push(
+        L.marker(a.coord).addTo(map).bindPopup("Agence SOGEA – "+a.name)
+      );
+      zoneRadii.forEach(r=>{
+        zones.push(
+          L.circle(a.coord,{
+            radius:r*1000,
+            color:a.color,
+            fillOpacity:0.08
+          }).addTo(map)
+        );
+      });
+    }
+  });
+}
 
-function search() {
-  document.getElementById("result").innerText = "";
-  if (marker) map.removeLayer(marker);
+function search(){
+  document.getElementById("result").innerText="";
+  drawAgencies();
+  if(targetMarker) map.removeLayer(targetMarker);
 
-  if (document.getElementById("geo").checked) {
+  if(document.getElementById("geo").checked){
     navigator.geolocation.getCurrentPosition(
-      pos => handlePoint(pos.coords.latitude, pos.coords.longitude),
-      () => document.getElementById("result").innerText = "📍 Position indisponible",
-      { enableHighAccuracy: true, timeout: 10000 }
+      pos=>{
+        reverseCity(pos.coords.latitude,pos.coords.longitude);
+        handlePoint(pos.coords.latitude,pos.coords.longitude);
+      },
+      ()=>document.getElementById("result").innerText="📍 Position indisponible",
+      {enableHighAccuracy:true,timeout:10000}
     );
     return;
   }
 
-  const q = document.getElementById("input").value.trim();
-  if (!q) return;
+  const q=document.getElementById("input").value.trim();
+  if(!q) return;
 
   fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=fr,de&limit=1`)
     .then(r=>r.json())
-    .then(data=>{
-      if (!data.length) {
-        document.getElementById("result").innerText = "❌ Lieu non trouvé";
+    .then(d=>{
+      if(!d.length){
+        document.getElementById("result").innerText="❌ Lieu non trouvé";
         return;
       }
-      handlePoint(parseFloat(data[0].lat), parseFloat(data[0].lon));
+      handlePoint(+d[0].lat,+d[0].lon);
     });
 }
 
-function handlePoint(lat, lon) {
-  marker = L.marker([lat,lon]).addTo(map);
-  map.setView([lat,lon], 9);
+function handlePoint(lat,lon){
+  targetMarker=L.marker([lat,lon]).addTo(map);
+  map.setView([lat,lon],9);
 
-  const distKm = map.distance(center,[lat,lon]) / 1000;
-  let zone = null;
+  let text="📍 Résultat :\n";
 
-  zoneRadii.forEach((r,i)=>{
-    if (!zone && distKm <= r) zone = i+1;
+  agencies.forEach(a=>{
+    if(!document.getElementById(a.id).checked) return;
+
+    const dist=map.distance(a.coord,[lat,lon])/1000;
+    let zone=null;
+
+    zoneRadii.forEach((r,i)=>{
+      if(!zone && dist<=r) zone=i+1;
+    });
+
+    if(zone){
+      text+=`✔ ${a.name} → Zone ${zone} (${zone*10} km)\n`;
+    } else {
+      const from=destinationPoint(a.coord,60,bearing(a.coord,[lat,lon]));
+      routeTime(from,[lat,lon],a.name);
+    }
   });
 
-  if (zone) {
-    document.getElementById("result").innerText =
-      `✅ Zone ${zone} – ${zone*10} km`;
-  } else {
-    const from = destinationPoint(center, 60, bearing(center,[lat,lon]));
-    routeTime(from,[lat,lon]);
-  }
+  document.getElementById("result").innerText=text;
 }
 
-function bearing(a,b){
-  const toRad = d => d*Math.PI/180;
-  const y = Math.sin(toRad(b[1]-a[1])) * Math.cos(toRad(b[0]));
-  const x = Math.cos(toRad(a[0]))*Math.sin(toRad(b[0])) -
-            Math.sin(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.cos(toRad(b[1]-a[1]));
-  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+function reverseCity(lat,lon){
+  fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.address){
+        const city=d.address.city||d.address.town||d.address.village||"";
+        document.getElementById("result").innerText=`📍 Vous êtes à ${city}\n`;
+      }
+    });
 }
 
-function destinationPoint(start, distKm, brng){
-  const R = 6371;
-  const toRad = d => d*Math.PI/180;
-  const toDeg = r => r*180/Math.PI;
-
-  const lat1 = toRad(start[0]);
-  const lon1 = toRad(start[1]);
-  const br = toRad(brng);
-  const d = distKm/R;
-
-  const lat2 = Math.asin(Math.sin(lat1)*Math.cos(d)+Math.cos(lat1)*Math.sin(d)*Math.cos(br));
-  const lon2 = lon1 + Math.atan2(Math.sin(br)*Math.sin(d)*Math.cos(lat1),Math.cos(d)-Math.sin(lat1)*Math.sin(lat2));
-
-  return [toDeg(lat2),toDeg(lon2)];
-}
-
-function routeTime(from,to){
+/* ROUTE */
+function routeTime(from,to,name){
   fetch(`https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=false`)
     .then(r=>r.json())
-    .then(data=>{
-      const min = Math.round(data.routes[0].duration/60);
-      document.getElementById("result").innerText =
-        `🚗 Hors zone (+60 km)\nTemps de trajet depuis la limite zone 6 : ${min} min`;
+    .then(d=>{
+      const min=Math.round(d.routes[0].duration/60);
+      document.getElementById("result").innerText+=
+        `❌ ${name} → Hors zone (+60 km) – ${min} min\n`;
     });
+}
+
+/* GEO UTILS */
+function bearing(a,b){
+  const toRad=d=>d*Math.PI/180;
+  const y=Math.sin(toRad(b[1]-a[1]))*Math.cos(toRad(b[0]));
+  const x=Math.cos(toRad(a[0]))*Math.sin(toRad(b[0]))-
+          Math.sin(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.cos(toRad(b[1]-a[1]));
+  return (Math.atan2(y,x)*180/Math.PI+360)%360;
+}
+function destinationPoint(start,distKm,brng){
+  const R=6371,toRad=d=>d*Math.PI/180,toDeg=r=>r*180/Math.PI;
+  const lat1=toRad(start[0]),lon1=toRad(start[1]),br=toRad(brng),d=distKm/R;
+  const lat2=Math.asin(Math.sin(lat1)*Math.cos(d)+Math.cos(lat1)*Math.sin(d)*Math.cos(br));
+  const lon2=lon1+Math.atan2(Math.sin(br)*Math.sin(d)*Math.cos(lat1),Math.cos(d)-Math.sin(lat1)*Math.sin(lat2));
+  return [toDeg(lat2),toDeg(lon2)];
 }
 </script>
 
