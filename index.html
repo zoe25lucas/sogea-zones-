@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -95,10 +96,12 @@ footer {
   <label><input type="checkbox" id="rich" checked> Richwiller</label>
 
   <label style="margin-top:10px;">
-    <input type="checkbox" id="geo"> Utiliser ma géolocalisation
+    <input type="checkbox" id="geo" onchange="toggleInput()"> Utiliser ma géolocalisation
   </label>
 
+  <!-- Champ texte masquable -->
   <input id="input" placeholder="Ville, village ou adresse complète">
+
   <button onclick="search()">Vérifier la zone</button>
 
   <div id="result"></div>
@@ -119,7 +122,6 @@ const agencies = [
   { id:"rich", name:"Richwiller", coord:[47.7786,7.3125] }
 ];
 
-// zones de 10 km jusqu’à 60 km
 const zoneRadii = [10,20,30,40,50,60];
 
 /* ================= CARTE ================= */
@@ -130,6 +132,20 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
 }).addTo(map);
 
 let targetMarker;
+
+/* ================= UI ================= */
+
+function toggleInput(){
+  const geo = document.getElementById("geo").checked;
+  const input = document.getElementById("input");
+
+  if (geo) {
+    input.style.display = "none";
+    input.value = "";
+  } else {
+    input.style.display = "block";
+  }
+}
 
 /* ================= LOGIQUE ================= */
 
@@ -178,9 +194,7 @@ function handleGeo(lat, lon){
         d.address?.municipality ||
         "Lieu inconnu";
 
-      // ⚠️ ON ÉCRIT UNE SEULE FOIS
       result.innerText = `📍 Vous êtes à ${city}\n\n`;
-
       handlePoint(lat, lon);
     });
 }
@@ -205,8 +219,7 @@ function handlePoint(lat, lon){
     });
 
     if (zone) {
-      result.innerText +=
-        `✔ ${a.name} → Zone ${zone} (${zone*10} km)\n`;
+      result.innerText += `✔ ${a.name} → Zone ${zone} (${zone*10} km)\n`;
     } else {
       const from = destinationPoint(a.coord, 60, bearing(a.coord, [lat, lon]));
       routeTime(from, [lat, lon], a.name);
