@@ -10,7 +10,7 @@
 
 <style>
 :root {
-  --primary:#003a8f;
+  --blue:#003a8f;
   --bg:#f4f6f8;
 }
 body {
@@ -27,8 +27,10 @@ header {
   box-shadow:0 2px 10px rgba(0,0,0,0.08);
 }
 header img { height:40px; }
-header h1 { font-size:18px; margin:0; color:var(--primary); }
+header h1 { font-size:18px; margin:0; color:var(--blue); }
+
 main { padding:15px; }
+
 .card {
   background:white;
   border-radius:14px;
@@ -36,6 +38,7 @@ main { padding:15px; }
   box-shadow:0 6px 20px rgba(0,0,0,0.08);
   margin-bottom:15px;
 }
+
 input, button {
   width:100%;
   padding:12px;
@@ -44,21 +47,30 @@ input, button {
   border:1px solid #ccc;
   font-size:15px;
 }
+
 button {
-  background:var(--primary);
+  background:var(--blue);
   color:white;
   border:none;
+  cursor:pointer;
 }
-label { display:block; margin-top:8px; }
+
+label {
+  display:block;
+  margin-top:8px;
+}
+
 #result {
   margin-top:12px;
   font-weight:600;
   white-space:pre-line;
 }
+
 #map {
   height:55vh;
   border-radius:16px;
 }
+
 footer {
   text-align:center;
   font-size:12px;
@@ -71,7 +83,7 @@ footer {
 <body>
 
 <header>
-  <img src="sogea-logo.png">
+  <img src="sogea-logo.png" alt="SOGEA">
   <h1>Zones d’intervention – SOGEA</h1>
 </header>
 
@@ -82,7 +94,7 @@ footer {
   <label><input type="checkbox" id="kraut" checked> Krautergersheim</label>
   <label><input type="checkbox" id="rich" checked> Richwiller</label>
 
-  <label>
+  <label style="margin-top:10px;">
     <input type="checkbox" id="geo"> Utiliser ma géolocalisation
   </label>
 
@@ -100,86 +112,122 @@ footer {
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-const agencies=[
-  {id:"kraut",name:"Krautergersheim",coord:[48.47236,7.59375],color:"#003a8f"},
-  {id:"rich",name:"Richwiller",coord:[47.7786,7.3125],color:"#e67e22"}
+/* ================= DONNÉES ================= */
+
+const agencies = [
+  { id:"kraut", name:"Krautergersheim", coord:[48.47236,7.59375] },
+  { id:"rich", name:"Richwiller", coord:[47.7786,7.3125] }
 ];
-const zoneRadii=[10,20,30,40,50,60];
-const map=L.map('map').setView([48.3,7.6],8);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+// zones de 10 km jusqu’à 60 km
+const zoneRadii = [10,20,30,40,50,60];
+
+/* ================= CARTE ================= */
+
+const map = L.map('map').setView([48.3,7.6],8);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'© OpenStreetMap'
+}).addTo(map);
 
 let targetMarker;
 
-function search(){
-  document.getElementById("result").innerText="";
-  if(targetMarker) map.removeLayer(targetMarker);
+/* ================= LOGIQUE ================= */
 
-  if(document.getElementById("geo").checked){
+function search(){
+  const result = document.getElementById("result");
+  result.innerText = "";
+
+  if (targetMarker) map.removeLayer(targetMarker);
+
+  if (document.getElementById("geo").checked) {
     navigator.geolocation.getCurrentPosition(
-      p=>handleGeo(p.coords.latitude,p.coords.longitude),
-      ()=>document.getElementById("result").innerText="📍 Position indisponible",
-      {enableHighAccuracy:true}
+      pos => handleGeo(pos.coords.latitude, pos.coords.longitude),
+      () => result.innerText = "📍 Géolocalisation indisponible",
+      { enableHighAccuracy:true, timeout:10000 }
     );
     return;
   }
 
-  const q=input.value.trim();
-  if(!q) return;
+  const q = input.value.trim();
+  if (!q) return;
 
   fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&countrycodes=fr,de&limit=1`)
-    .then(r=>r.json())
-    .then(d=>{
-      if(!d.length) return;
-      handlePoint(+d[0].lat,+d[0].lon);
+    .then(r => r.json())
+    .then(d => {
+      if (!d.length) {
+        result.innerText = "❌ Lieu non trouvé";
+        return;
+      }
+      handlePoint(+d[0].lat, +d[0].lon);
     });
 }
 
-function handleGeo(lat,lon){
+/* ================= GÉOLOCALISATION ================= */
+
+function handleGeo(lat, lon){
+  const result = document.getElementById("result");
+  result.innerText = "📍 Position détectée...\n";
+
   fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`)
-    .then(r=>r.json())
-    .then(d=>{
-      const city=d.address?.city||d.address?.town||d.address?.village||"";
-      document.getElementById("result").innerText=
-        city ? `📍 Vous êtes à ${city}\n\n` : "📍 Position détectée\n\n";
-      handlePoint(lat,lon,true);
+    .then(r => r.json())
+    .then(d => {
+      const city =
+        d.address?.city ||
+        d.address?.town ||
+        d.address?.village ||
+        d.address?.municipality ||
+        "Lieu inconnu";
+
+      // ⚠️ ON ÉCRIT UNE SEULE FOIS
+      result.innerText = `📍 Vous êtes à ${city}\n\n`;
+
+      handlePoint(lat, lon);
     });
 }
 
-function handlePoint(lat,lon,append=false){
-  targetMarker=L.marker([lat,lon]).addTo(map);
-  map.setView([lat,lon],9);
+/* ================= CALCUL ZONES ================= */
 
-  agencies.forEach(a=>{
-    if(!document.getElementById(a.id).checked) return;
+function handlePoint(lat, lon){
+  if (targetMarker) map.removeLayer(targetMarker);
+  targetMarker = L.marker([lat, lon]).addTo(map);
+  map.setView([lat, lon], 9);
 
-    const dist=map.distance(a.coord,[lat,lon])/1000;
-    let zone=null;
+  const result = document.getElementById("result");
 
-    zoneRadii.forEach((r,i)=>{
-      if(!zone && dist<=r) zone=i+1;
+  agencies.forEach(a => {
+    if (!document.getElementById(a.id).checked) return;
+
+    const dist = map.distance(a.coord, [lat, lon]) / 1000;
+    let zone = null;
+
+    zoneRadii.forEach((r, i) => {
+      if (!zone && dist <= r) zone = i + 1;
     });
 
-    if(zone){
-      document.getElementById("result").innerText+=
+    if (zone) {
+      result.innerText +=
         `✔ ${a.name} → Zone ${zone} (${zone*10} km)\n`;
     } else {
-      const from=destinationPoint(a.coord,60,bearing(a.coord,[lat,lon]));
-      routeTime(from,[lat,lon],a.name);
+      const from = destinationPoint(a.coord, 60, bearing(a.coord, [lat, lon]));
+      routeTime(from, [lat, lon], a.name);
     }
   });
 }
 
-function routeTime(from,to,name){
+/* ================= TEMPS ROUTIER ================= */
+
+function routeTime(from, to, name){
   fetch(`https://router.project-osrm.org/route/v1/driving/${from[1]},${from[0]};${to[1]},${to[0]}?overview=false`)
-    .then(r=>r.json())
-    .then(d=>{
-      const min=Math.round(d.routes[0].duration/60);
-      document.getElementById("result").innerText+=
+    .then(r => r.json())
+    .then(d => {
+      const min = Math.round(d.routes[0].duration / 60);
+      document.getElementById("result").innerText +=
         `❌ ${name} → Hors zone (+60 km) – ${min} min\n`;
     });
 }
 
-/* maths */
+/* ================= MATHS ================= */
+
 function bearing(a,b){
   const toRad=d=>d*Math.PI/180;
   const y=Math.sin(toRad(b[1]-a[1]))*Math.cos(toRad(b[0]));
@@ -187,12 +235,13 @@ function bearing(a,b){
           Math.sin(toRad(a[0]))*Math.cos(toRad(b[0]))*Math.cos(toRad(b[1]-a[1]));
   return (Math.atan2(y,x)*180/Math.PI+360)%360;
 }
-function destinationPoint(start,distKm,brng){
-  const R=6371,toRad=d=>d*Math.PI/180,toDeg=r=>r*180/Math.PI;
-  const lat1=toRad(start[0]),lon1=toRad(start[1]),br=toRad(brng),d=distKm/R;
+
+function destinationPoint(start, distKm, brng){
+  const R=6371, toRad=d=>d*Math.PI/180, toDeg=r=>r*180/Math.PI;
+  const lat1=toRad(start[0]), lon1=toRad(start[1]), br=toRad(brng), d=distKm/R;
   const lat2=Math.asin(Math.sin(lat1)*Math.cos(d)+Math.cos(lat1)*Math.sin(d)*Math.cos(br));
   const lon2=lon1+Math.atan2(Math.sin(br)*Math.sin(d)*Math.cos(lat1),Math.cos(d)-Math.sin(lat1)*Math.sin(lat2));
-  return [toDeg(lat2),toDeg(lon2)];
+  return [toDeg(lat2), toDeg(lon2)];
 }
 </script>
 
